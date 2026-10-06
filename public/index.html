@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Dana Kaget — Klaim kode DANA</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#claim">Lewati ke formulir</a>
+  <header class="header">
+    <a class="brand" href="/dana-kaget">Dana <span>Kaget</span></a>
+    <nav id="reports-link" aria-label="Navigasi utama" hidden><a href="/analytics">Laporan perjalanan</a></nav>
+  </header>
+  <p id="local-notice" class="demo-notice" hidden>Mode lokal · Email masuk ke inbox pengujian. CAPTCHA memakai kunci uji Cloudflare.</p>
+  <main class="claim-layout">
+    <div class="intro">
+      <p class="eyebrow">DANA KAGET</p>
+      <h1>Klaim kode<br>DANA Anda.</h1>
+      <p class="lead">Verifikasi email Anda, lalu ambil satu kode dari persediaan yang tersedia.</p>
+      <ol class="how">
+        <li><strong>Masukkan email</strong><span>Selesaikan verifikasi keamanan dan pilih Get code.</span></li>
+        <li><strong>Cek kotak masuk</strong><span>Salin kode verifikasi 6 digit dari email Dana Kaget.</span></li>
+        <li><strong>Claim kode Anda</strong><span>Masukkan kode verifikasi di sini untuk melihat kode DANA.</span></li>
+      </ol>
+      <p class="small muted">Satu kode per alamat email. Penukaran dilakukan di DANA setelah kode ditampilkan. Halaman ini tidak meminta PIN atau kode login DANA.</p>
+      <section class="consent-panel" aria-labelledby="consent-title">
+        <h2 id="consent-title">Bantu perbaiki proses klaim</h2>
+        <p>Dengan izin Anda, kami mencatat langkah, kolom yang dipilih, durasi, dan hasil proses. Email, kode verifikasi, dan kode DANA tidak masuk data analitik.</p>
+        <p class="small">Event disimpan di server; GA4 dan Grovs juga menerima event jika diaktifkan oleh pengelola.</p>
+        <div class="consent-buttons"><button type="button" id="accept" data-target="consent_accept">Izinkan analitik</button><button type="button" id="decline" data-target="consent_decline" class="secondary">Tanpa analitik</button></div>
+        <p id="consent-status" class="small" role="status">Pilihan tidak memengaruhi klaim. Dapat diubah kapan saja.</p>
+      </section>
+    </div>
+    <div class="claim-column">
+      <section class="form-panel" id="claim" aria-labelledby="step-title">
+        <ol class="steps" id="steps" aria-label="Tahapan klaim"><li aria-current="step">01 · Email</li><li>02 · Verifikasi</li><li>03 · Kode DANA</li></ol>
+        <h2 id="step-title" tabindex="-1">Mulai dengan email Anda</h2>
+        <p id="load-error" class="error-summary" role="alert" hidden></p>
+        <form id="form" novalidate>
+          <p id="form-error" class="error-summary" role="alert" hidden></p>
+          <p id="form-status" class="small" role="status"></p>
+          <div id="email-panel">
+            <div class="field">
+              <label for="email">Alamat email</label>
+              <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required aria-describedby="email-hint email-error">
+              <p class="hint" id="email-hint">Gunakan email yang bisa Anda buka sekarang.</p>
+              <p class="error" id="email-error" hidden></p>
+            </div>
+            <div id="initial-captcha"></div>
+            <button class="wide" type="submit" id="get-code" data-target="get_code" disabled>Get code</button>
+          </div>
+          <div id="verify-panel" hidden>
+            <p>Kode verifikasi dikirim untuk <strong id="recipient"></strong>. Periksa kotak masuk atau folder spam.</p>
+            <p id="expiry" class="small muted"></p>
+            <a id="local-inbox" href="http://localhost:8025" target="_blank" rel="noopener noreferrer" hidden>Buka inbox pengujian (tab baru)</a>
+            <div class="field">
+              <label for="verification_code">Kode verifikasi email</label>
+              <input id="verification_code" name="verification_code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" aria-describedby="verification_code-hint verification_code-error">
+              <p class="hint" id="verification_code-hint">Masukkan 6 digit dari email Dana Kaget.</p>
+              <p class="error" id="verification_code-error" hidden></p>
+            </div>
+            <button class="wide" type="submit" id="claim-button" data-target="claim">Claim</button>
+            <div class="secondary-actions">
+              <button type="button" id="resend" class="text-button" data-target="resend">Kirim ulang kode</button>
+              <button type="button" id="change-email" class="text-button" data-target="change_email">Ganti email</button>
+            </div>
+            <section id="resend-panel" hidden aria-label="Kirim ulang kode verifikasi">
+              <p class="small">Selesaikan verifikasi keamanan untuk mengirim kode baru.</p>
+              <div id="resend-captcha"></div>
+              <button type="button" id="send-again" class="secondary">Kirim kode baru</button>
+            </section>
+          </div>
+        </form>
+        <section id="success" hidden aria-labelledby="success-title">
+          <p class="success-mark">Email terverifikasi</p>
+          <h2 id="success-title" tabindex="-1">Kode DANA Anda siap.</h2>
+          <p id="recovered" class="small" hidden>Ini kode yang sebelumnya sudah dialokasikan untuk email Anda.</p>
+          <p id="demo-reward" class="notice" hidden>Kode contoh untuk pengujian. Tidak dapat ditukarkan di DANA.</p>
+          <div class="reward" id="reward-value"></div>
+          <div class="reward-actions"><button type="button" id="copy" data-target="copy">Salin kode</button><button type="button" id="open-reward" class="secondary" hidden>Buka di DANA</button></div>
+          <p id="copy-status" class="small" role="status"></p>
+          <p class="small muted">Simpan kode ini. Penukaran dan status hadiah mengikuti ketentuan di DANA.</p>
+          <button type="button" id="restart" class="text-button" data-target="restart">Kembali ke awal</button>
+        </section>
+        <div id="captcha-region" class="captcha-region">
+          <p class="small"><strong>Verifikasi keamanan</strong></p>
+          <div id="turnstile-widget"></div>
+          <p id="captcha-status" class="small" role="status">Memuat verifikasi keamanan…</p>
+          <button type="button" id="captcha-retry" class="text-button" data-target="captcha_reset">Muat ulang verifikasi</button>
+        </div>
+      </section>
+      <p class="footnote">Email digunakan untuk mengirim kode verifikasi. Muat ulang halaman mengosongkan isian; verifikasi email yang sama untuk mendapatkan kembali kode yang sudah diklaim.</p>
+      <details id="inspector" hidden>
+        <summary>Inspector event</summary>
+        <p class="small">Pratinjau di memori tab ini. Hanya event setelah izin dikirim ke server.</p>
+        <p id="delivery-status" class="small"></p>
+        <p class="small">Journey: <code id="journey-id"></code></p>
+        <ol id="event-list" class="events" aria-label="Event terbaru"></ol>
+      </details>
+    </div>
+  </main>
+  <footer class="footer">Dana Kaget<span>Email · Verifikasi · Klaim</span></footer>
+  <noscript><p class="error-summary">Aktifkan JavaScript untuk menggunakan formulir ini.</p></noscript>
+</body>
+</html>

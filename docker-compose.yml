@@ -1,0 +1,71 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${PORT:-4173}:4173"
+    environment:
+      NODE_ENV: production
+      PORT: 4173
+      HOST: 0.0.0.0
+      DATA_DIR: /app/data
+      APP_MODE: "${APP_MODE:-local}"
+      PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-http://localhost:4173}"
+      TRUSTED_PROXY_CIDRS: "${TRUSTED_PROXY_CIDRS:-}"
+      REPORTS_USER: "${REPORTS_USER:-}"
+      REPORTS_PASSWORD: "${REPORTS_PASSWORD:-}"
+      TURNSTILE_SITE_KEY: "${TURNSTILE_SITE_KEY:-}"
+      TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:-}"
+      CLAIM_SECRET: "${CLAIM_SECRET:-}"
+      KIRIM_EMAIL_DOMAIN: "${KIRIM_EMAIL_DOMAIN:-}"
+      KIRIM_EMAIL_USERNAME: "${KIRIM_EMAIL_USERNAME:-}"
+      KIRIM_EMAIL_PASSWORD: "${KIRIM_EMAIL_PASSWORD:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-}"
+      MAILPIT_URL: http://mailpit:8025
+      GA4_MEASUREMENT_ID: "${GA4_MEASUREMENT_ID:-}"
+      GROVS_API_KEY: "${GROVS_API_KEY:-}"
+      GROVS_TEST_ENVIRONMENT: "${GROVS_TEST_ENVIRONMENT:-true}"
+      ANALYTICS_DEBUG: "${ANALYTICS_DEBUG:-true}"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    pids_limit: 128
+    depends_on:
+      - mailpit
+    volumes:
+      - analytics-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:' + process.env.PORT + '/healthz')
+          .then(response => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+  mailpit:
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    ports:
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 500
+    volumes:
+      - mailpit-data:/data
+    restart: unless-stopped
+
+volumes:
+  analytics-data:
+  mailpit-data:

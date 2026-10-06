@@ -1,0 +1,15 @@
+{
+  "name": "grovs",
+  "version": "2.0.0",
+  "source": "https://github.com/grovs-io/grovs-js",
+  "commit": "212703db0ca7377fead38b8c94f0d3d6a18f1894",
+  "retrieved": "2026-09-30",
+  "license": "MIT",
+  "build": "esbuild src/index.ts --bundle --format=esm --target=es2020 --minify --outfile=grovs.js",
+  "buildTool": "esbuild 0.28.1",
+  "upstreamSha256": "e32a34d0cd9a26c1d4d33f7dd29b567733dd9aab2d944c46f55bf37833e2fa86",
+  "sha256": "d104a7c0b29bd437c59cc75580729356bbd380becbb08d92c1cad8a0dcb15d00",
+  "localPatch": "scripts/patch-grovs.mjs: captureDeepLinks=false disables URL and saved-path attribution; also removes paths from previously queued events before delivery.",
+  "patched": "2026-10-06",
+  "reason": "Official v2 source supports custom events. This locally patched bundle prevents query-string and persisted attribution data from bypassing the application's analytics sanitizer. See PRIVACY-PATCH.md for reproduction and upgrade instructions."
+}

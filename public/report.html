@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laporan perjalanan | Dana Kaget</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/report.js"></script>
+</head>
+<body>
+  <a class="skip" href="#report">Lewati ke laporan</a>
+  <header class="header"><a class="brand" href="/dana-kaget">Dana <span>Kaget</span></a><nav aria-label="Navigasi utama"><a href="/dana-kaget">Buka formulir</a></nav></header>
+  <main class="report" id="report">
+    <h1>Di mana perjalanan terhenti?</h1>
+    <p class="lead">Telusuri kolom yang dipilih, hambatan validasi, dan langkah yang berhasil dilanjutkan.</p>
+    <p class="notice">Laporan hanya memuat event setelah izin analitik. Drop-off adalah perkiraan: perjalanan belum selesai dan tanpa event baru selama 30 menit. Tab tersembunyi atau halaman ditutup ditandai “meninggalkan halaman” terlebih dahulu. Izin yang ditarik atau koneksi terputus juga dapat membuat kelanjutan tidak terlihat. Satu journey mewakili percobaan dalam tab, bukan satu orang.</p>
+    <div class="report-toolbar"><button type="button" id="refresh">Perbarui laporan</button><a class="button secondary" href="/api/events/export" download>Unduh semua event (JSON)</a><span id="report-status" class="small" role="status">Memuat event tersimpan…</span></div>
+    <p id="report-error" class="error-summary" role="alert" hidden>Data belum dapat diambil. Periksa server lalu pilih Perbarui laporan.</p>
+    <p id="empty" class="notice" hidden>Belum ada perjalanan tercatat. Buka formulir, pilih “Izinkan analitik”, lalu isi beberapa kolom untuk melihat hasilnya di sini.</p>
+    <div id="results" hidden>
+      <dl class="totals" id="totals"></dl>
+      <section aria-labelledby="outcomes-title"><h2 id="outcomes-title">Hasil email dan klaim</h2><p class="small muted">Email accepted berarti penyedia menerima permintaan pengiriman, bukan email sudah dibaca. Claim success berarti kode ditampilkan setelah alokasi oleh server, bukan ditukarkan di DANA. Event dari browser bisa hilang saat koneksi terputus; laporan ini bukan buku besar hadiah. Interaksi di dalam iframe CAPTCHA dan kotak masuk email tidak dapat diamati.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Hasil proses"><table><thead><tr><th>Event</th><th class="number">Jumlah event</th><th class="number">Journey unik</th></tr></thead><tbody id="outcome-rows"></tbody></table></div></section>
+      <section aria-labelledby="failures-title"><h2 id="failures-title">Hambatan proses</h2><p class="small muted">Termasuk validasi di browser dan respons API. Satu percobaan bisa menghasilkan event kegagalan dan validasi; jumlah event bukan jumlah percobaan unik.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Kesalahan proses"><table><thead><tr><th>Kode kesalahan</th><th class="number">Jumlah event</th><th class="number">Journey unik</th></tr></thead><tbody id="failure-rows"></tbody></table></div></section>
+      <section aria-labelledby="funnel-title"><h2 id="funnel-title">Kelanjutan per langkah</h2><p class="muted small">Jumlah journey unik. Rasio lanjut = berhasil melanjutkan ÷ pernah melihat langkah. Kembali ke langkah yang sama tidak menambah hitungan.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Tabel langkah, dapat digulir"><table><thead><tr><th>Langkah</th><th class="number">Dilihat</th><th class="number">Coba lanjut</th><th class="number">Berhasil lanjut</th><th class="number">Rasio lanjut</th><th class="number">Drop-off</th></tr></thead><tbody id="step-rows"></tbody></table></div></section>
+      <section aria-labelledby="field-title"><h2 id="field-title">Interaksi per kolom</h2><p class="muted small">Semua hitungan adalah journey unik. “Diisi” = ada input/perubahan; “Lanjut” = langkah kolom tersebut selesai. Durasi fokus menghitung interval fokus yang tercatat dan berhenti saat tab tersembunyi atau idle. Kolom terakhir sebelum drop-off menunjukkan lokasi, bukan penyebab pasti.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Tabel interaksi kolom, dapat digulir"><table><thead><tr><th>Kolom</th><th class="number">Hover</th><th class="number">Fokus</th><th class="number">Diisi</th><th class="number">Valid</th><th class="number">Error</th><th class="number">Lanjut</th><th class="number">Terakhir saat drop</th><th class="number">Rerata fokus</th></tr></thead><tbody id="field-rows"></tbody></table></div></section>
+      <section aria-labelledby="journey-title"><h2 id="journey-title">Perjalanan terbaru</h2><p class="muted small">Maksimal 100 journey terbaru; angka ringkasan mencakup semua event tersimpan. Klik journey untuk melihat urutan event. Muat ulang dalam 30 menit mempertahankan ID journey, tetapi isian formulir dikosongkan.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Tabel perjalanan, dapat digulir"><table><thead><tr><th>Journey</th><th>Status</th><th>Langkah terakhir</th><th>Kolom terakhir</th><th>Event terakhir diterima</th><th class="number">Event</th></tr></thead><tbody id="journey-rows"></tbody></table></div></section>
+      <section id="timeline" class="timeline-panel" hidden aria-labelledby="timeline-title"><h2 id="timeline-title" tabindex="-1">Urutan event</h2><p class="small muted">Diurutkan berdasarkan nomor urut klien agar paket yang tiba terlambat tidak mengubah alur.</p><ol id="timeline-events" class="events"></ol></section>
+    </div>
+  </main>
+  <footer class="footer">Dana Kaget · Laporan perjalanan<span>Isi formulir, URL, dan identitas peserta tidak disimpan dalam event.</span></footer>
+</body>
+</html>
