@@ -1,6 +1,6 @@
 # Dana Kaget
 
-Enter an email, pass Cloudflare Turnstile, receive a six-digit verification code, and press **Claim** to reveal a DANA code from a private inventory. One normalized email receives one reward. Retrying a successful claim or verifying the same email again returns its existing reward.
+Enter an email, pass Cloudflare Turnstile, receive a six-digit verification code, and press **Claim** to reveal a DANA reward. Set a shared link in `DANA_REWARD_LINK`, or leave it blank to use individually allocated inventory. Each normalized email has one recorded claim; retries and later verification return its original reward. Links appear as a QR code with a clickable URL below.
 
 ## Run locally
 
@@ -16,7 +16,7 @@ docker compose exec app npm run import:codes -- --demo
 - Analytics: http://localhost:4173/analytics.
 - Health: http://localhost:4173/healthz.
 
-Local mode uses Cloudflare's official success test keys by default. Internet access is needed for the widget and server verification. Demo rewards start with `DEMO-NOT-REDEEMABLE-` and cannot be redeemed in DANA. Inventory starts empty until imported.
+Local mode uses Cloudflare's official success test keys by default. Internet access is needed for the widget and server verification. Demo rewards start with `DEMO-NOT-REDEEMABLE-` and cannot be redeemed in DANA. Leave `DANA_REWARD_LINK` blank for this demo-inventory recipe; inventory starts empty until imported.
 
 The supported Node runtime is **22.23.2 or newer within 22.x**. The Dockerfile pins Node `22.23.3-alpine` by image digest, and local Compose pins Mailpit `v1.31.4` by digest. Node 22 marks its built-in SQLite API experimental.
 
@@ -46,7 +46,6 @@ Traefik must already be attached to `edge` with `websecure` and a certificate fo
 docker compose -f docker-compose.traefik.yml config --quiet
 docker compose -f docker-compose.traefik.yml up -d --build
 docker compose -f docker-compose.traefik.yml ps
-docker compose -f docker-compose.traefik.yml exec -T app npm run import:codes -- - < /absolute/private/path/dana-codes.txt
 ```
 
 After deployment, the public form is at `https://dana.skytek.id/dana-kaget`; `/healthz` reports app health. The stack has no published host port or Mailpit service. Use this file alone, rather than merging it with `docker-compose.yml`, which would bring back the local ports and Mailpit dependency.
@@ -57,9 +56,31 @@ Forwarded addresses are used only when the direct peer matches `TRUSTED_PROXY_CI
 
 Both Compose app services run without root privileges, with a read-only root filesystem, all Linux capabilities dropped, privilege escalation disabled, and a bounded temporary filesystem. Only the data volume and temporary directory are writable. These files prepare deployment; the repository audit does not establish that the production stack has been deployed or validated.
 
+## Configure the shared DANA link
+
+Fill the blank `DANA_REWARD_LINK` setting in your private `.env` with the actual DANA link. The example below shows the format only; replace the token before starting:
+
+```dotenv
+DANA_REWARD_LINK='https://link.dana.id/kaget?c=<your-link-token>'
+```
+
+Only HTTPS URLs on `dana.id` or `link.dana.id` with a non-empty path are accepted, up to 2048 characters. Literal placeholders are rejected. The link stays on the server until a successful, cookie-bound OTP claim; it is absent from public configuration, verification emails and analytics. Both Compose files pass this setting to the app.
+
+To deploy this feature and apply the setting:
+
+```sh
+docker compose -f docker-compose.traefik.yml up -d --build --force-recreate app
+```
+
+Every new verified email receives the same configured link, with one persistent claim per normalized email. No inventory import is needed in shared mode. Retrying or verifying that email again recovers its original claim without creating another. Changing the setting affects only new claimants; earlier claimants keep their original reward, including any individually allocated reward from before shared mode was enabled. Clearing the setting returns new claimants to imported inventory; existing claims remain recoverable. Preserve the data volume and `CLAIM_SECRET` to retain these limits.
+
+This app records one claim per email, not per person or DANA account. A revealed shared link can be copied or forwarded. DANA determines the link's remaining balance, expiration and per-account redemption limits; the app cannot enforce those limits or confirm redemption.
+
+The browser generates the QR locally with the bundled encoder; no reward link is sent to an external QR service. The clickable URL below opens DANA in a new tab and can also be copied. Very long links that would produce an overly dense QR keep the clickable/copyable URL with a fallback message. Plain legacy/demo codes still display as text. The link control uses native keyboard activation and has no outbound `href` for automatic click analytics to collect.
+
 ## Import your private list
 
-Use a UTF-8 text file with **one plain code or HTTPS link per line**, or a JSON array of strings. Your `https://dana.id/<random_code>` format is supported, as is `https://link.dana.id/...`. Replace the placeholder with each existing code from your list; the app does not invent DANA codes. Each imported link is preserved and revealed with an Open in DANA button. Other link domains/schemes, literal placeholders, blank entries in JSON, embedded whitespace, and malformed entries are rejected. Duplicate values are skipped, including already allocated values. The entire file is validated before writing.
+Use this alternative when `DANA_REWARD_LINK` is blank. Supply a UTF-8 text file with **one plain code or HTTPS link per line**, or a JSON array of strings. Your `https://dana.id/<random_code>` format is supported, as is `https://link.dana.id/...`. Replace the placeholder with each existing code from your list; the app does not invent DANA codes. Each imported link is preserved and revealed as a QR and clickable link. Other link domains/schemes, literal placeholders, blank entries in JSON, embedded whitespace, and malformed entries are rejected. Duplicate values are skipped, including already allocated values. The entire file is validated before writing.
 
 For Node:
 
@@ -72,6 +93,8 @@ For the running Compose app, stream the file into the import command:
 ```sh
 docker compose exec -T app npm run import:codes -- - < /absolute/private/path/dana-codes.txt
 ```
+
+For Traefik, add `-f docker-compose.traefik.yml` immediately after `docker compose`.
 
 Only counts are printed. Keep the source file outside the repository and `public/`; never add it to the image. The app imports entries into private SQLite storage; it does not reread or delete the original file. No real inventory file has been supplied with this project.
 
@@ -92,6 +115,7 @@ The example file defaults to `APP_MODE=live`. Copy it to your private environmen
 | `KIRIM_EMAIL_PASSWORD` | Server-only Basic auth password from the Kirim.Email API example. |
 | `EMAIL_FROM` | Sender address on your Kirim.Email domain, e.g. `claim@skytek.id`. Replace with your actual sender. |
 | `CLAIM_SECRET` | Stable random secret of at least 32 characters for HMAC hashing. Keep with database backups. |
+| `DANA_REWARD_LINK` | Private shared HTTPS DANA link, revealed after verification; one recorded claim per email. Blank uses imported inventory. |
 | `TRUSTED_PROXY_CIDRS` | Comma-separated trusted proxy addresses/CIDRs; required for Traefik, empty for direct/local access. Prefer Traefik's exact `/32` or `/128`. |
 | `REPORTS_USER`, `REPORTS_PASSWORD` | Optional HTTP Basic credentials for reports; live reports stay disabled unless both are set. Password must be 32–1024 characters. |
 | `GA4_MEASUREMENT_ID`, `GROVS_API_KEY` | Optional public analytics SDK identifiers. |
@@ -119,7 +143,7 @@ Local Compose publishes the app and inbox on loopback only. In live mode, host/o
 - A random HttpOnly, SameSite=Strict cookie binds verification to its requesting browser. Live mode uses the Secure, host-only `__Host-dana_session` cookie to prevent sibling-domain cookie injection.
 - Emails are normalized by trim/lowercase. Email, session and OTP values are HMAC hashed in the operational database. This is a limit per email address, not per human.
 - Raw email and OTP are sent to the mail provider; local Mailpit holds message contents for testing. They are absent from analytics and application logs.
-- Allocation uses an immediate SQLite transaction and unique constraints on both email and reward. Failed/expired verification takes no reward. Stock and existing allocation are checked only after successful OTP verification; the code-request response does not reveal them. No reward is reserved while the email is in transit, so stock can run out before Claim.
+- Claims use an immediate SQLite transaction. `shared_claims` stores one original link per email; individually allocated inventory uses `claims`, with uniqueness on both email and reward. Both tables are checked before recording a new claim, preserving one claim across configuration changes. Failed/expired verification takes no reward. In inventory mode, stock is checked only after successful OTP verification and can run out before Claim. The code-request response does not reveal stock or existing claims.
 - Lost claim responses can be retried with the same valid code. After expiry, verify the same email again to recover its assigned reward.
 - Expired challenge records older than 24 hours are pruned during new requests. Allocation history and inventory persist.
 - Reward values must be stored privately so they can be displayed later. File permissions restrict access; database/volume backups are sensitive.

@@ -3,7 +3,7 @@ import { googleProvider, grovsProvider } from './analytics/providers.js';
 import { localProvider } from './analytics/collector.js';
 import { Journey } from './analytics/journey.js';
 import { validateField } from './form-schema.js';
-import { isRewardLink } from './reward.js';
+import { createRewardView } from './reward-view.js';
 import { createTurnstileLoader } from './turnstile.js';
 
 const $ = selector => document.querySelector(selector);
@@ -30,6 +30,13 @@ let resendAt = 0, expiredReported = false, interaction = 'unknown', captchaRende
 const compactCaptcha = window.matchMedia('(max-width: 374px)');
 const inputTimers = new Map();
 const loadCaptcha = createTurnstileLoader({ window, document });
+const rewardView = createRewardView({
+  qr: $('#reward-qr'), hint: $('#reward-qr-hint'), link: $('#open-reward'),
+  value: $('#reward-value'), fallback: $('#reward-qr-fallback'),
+}, {
+  openWindow: (...args) => window.open(...args),
+  onOpen: () => { event('dk_reward_open'); void local.flush({ urgent: true }); },
+});
 
 function event(name, properties = {}) { journey.emit(name, properties); }
 function errorMessage(code) { return messages[code] || messages.service_unavailable; }
@@ -186,16 +193,12 @@ async function claim() {
   const started = Date.now();
   try {
     const result = await api('/api/claim', { requestId: challenge.requestId, verificationCode: $('#verification_code').value.trim() });
+    if (!rewardView.render(result.reward)) throw { code: 'service_unavailable' };
     reward = result.reward;
     journey.continued(); showStep(2); journey.continued(); journey.complete(result.recovered);
-    $('#reward-value').textContent = reward.value;
     $('#recovered').hidden = !result.recovered;
     $('#demo-reward').hidden = !reward.value.startsWith('DEMO-NOT-REDEEMABLE-');
     $('#copy').textContent = reward.kind === 'link' ? 'Salin tautan' : 'Salin kode';
-    $('#open-reward').hidden = true;
-    if (reward.kind === 'link' && isRewardLink(reward.value)) {
-      $('#open-reward').hidden = false;
-    }
     $('#email').value = ''; $('#verification_code').value = '';
     void tracker.flush();
   } catch (error) {
@@ -264,11 +267,7 @@ function bind() {
     event('dk_step_back'); challenge = undefined; clearError(); showStep(0); resetCaptcha(); $('#email').focus();
   });
   $('#local-inbox').addEventListener('click', () => event('dk_inbox_open'));
-  $('#open-reward').addEventListener('click', () => {
-    if (reward?.kind !== 'link' || !isRewardLink(reward.value)) return;
-    window.open(reward.value, '_blank', 'noopener,noreferrer');
-    event('dk_reward_open'); void local.flush({ urgent: true });
-  });
+  $('#open-reward').addEventListener('click', () => rewardView.open());
   $('#copy').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(reward.value);
@@ -281,7 +280,7 @@ function bind() {
   $('#restart').addEventListener('click', () => {
     event('dk_form_reset'); tracker.newJourney(); journey.reset();
     reward = undefined; challenge = undefined; clearError();
-    $('#reward-value').textContent = ''; $('#open-reward').hidden = true; $('#copy-status').textContent = '';
+    rewardView.clear(); $('#copy-status').textContent = '';
     showStep(0); resetCaptcha();
   });
   $('#accept').addEventListener('click', () => void chooseConsent('granted'));

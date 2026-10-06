@@ -19,13 +19,13 @@
     <div class="intro">
       <p class="eyebrow">DANA KAGET</p>
       <h1>Klaim kode<br>DANA Anda.</h1>
-      <p class="lead">Verifikasi email Anda, lalu ambil satu kode dari persediaan yang tersedia.</p>
+      <p class="lead">Verifikasi email Anda untuk membuka hadiah DANA.</p>
       <ol class="how">
         <li><strong>Masukkan email</strong><span>Selesaikan verifikasi keamanan dan pilih Get code.</span></li>
         <li><strong>Cek kotak masuk</strong><span>Salin kode verifikasi 6 digit dari email Dana Kaget.</span></li>
         <li><strong>Claim kode Anda</strong><span>Masukkan kode verifikasi di sini untuk melihat kode DANA.</span></li>
       </ol>
-      <p class="small muted">Satu kode per alamat email. Penukaran dilakukan di DANA setelah kode ditampilkan. Halaman ini tidak meminta PIN atau kode login DANA.</p>
+      <p class="small muted">Satu klaim per alamat email. Penukaran dilakukan di DANA setelah hadiah ditampilkan. Halaman ini tidak meminta PIN atau kode login DANA.</p>
       <section class="consent-panel" aria-labelledby="consent-title">
         <h2 id="consent-title">Bantu perbaiki proses klaim</h2>
         <p>Dengan izin Anda, kami mencatat langkah, kolom yang dipilih, durasi, dan hasil proses. Email, kode verifikasi, dan kode DANA tidak masuk data analitik.</p>
@@ -77,10 +77,14 @@
         <section id="success" hidden aria-labelledby="success-title">
           <p class="success-mark">Email terverifikasi</p>
           <h2 id="success-title" tabindex="-1">Kode DANA Anda siap.</h2>
-          <p id="recovered" class="small" hidden>Ini kode yang sebelumnya sudah dialokasikan untuk email Anda.</p>
+          <p id="recovered" class="small" hidden>Klaim untuk email ini sudah tercatat. Berikut hadiah yang sama.</p>
           <p id="demo-reward" class="notice" hidden>Kode contoh untuk pengujian. Tidak dapat ditukarkan di DANA.</p>
-          <div class="reward" id="reward-value"></div>
-          <div class="reward-actions"><button type="button" id="copy" data-target="copy">Salin kode</button><button type="button" id="open-reward" class="secondary" hidden>Buka di DANA</button></div>
+          <div class="reward-qr" id="reward-qr" hidden></div>
+          <p id="reward-qr-hint" class="small muted" hidden>Pindai QR dengan kamera ponsel, atau buka tautan di bawah.</p>
+          <p id="reward-qr-fallback" class="small muted" role="status" hidden>QR belum dapat ditampilkan. Buka atau salin tautan di bawah.</p>
+          <button type="button" role="link" id="open-reward" class="text-button reward-link" aria-label="Buka tautan DANA di tab baru" hidden></button>
+          <div class="reward" id="reward-value" hidden></div>
+          <div class="reward-actions"><button type="button" id="copy" data-target="copy">Salin kode</button></div>
           <p id="copy-status" class="small" role="status"></p>
           <p class="small muted">Simpan kode ini. Penukaran dan status hadiah mengikuti ketentuan di DANA.</p>
           <button type="button" id="restart" class="text-button" data-target="restart">Kembali ke awal</button>

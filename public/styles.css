@@ -98,6 +98,9 @@ caption { text-align: left; padding: 12px 16px; font-weight: 700; }
 #turnstile-widget { min-height: 65px; }
 #verification_code { letter-spacing: .25em; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
 .reward { padding: 20px; border: 1px dashed var(--green); background: #f0f7ff; overflow-wrap: anywhere; font-family: monospace; font-size: 1.05rem; user-select: all; margin: 24px 0; }
+.reward-qr { width: min(100%, 280px); margin: 24px auto 16px; background: white; }
+.reward-qr svg { display: block; width: 100%; height: auto; }
+.reward-link { display: block; max-width: 100%; overflow-wrap: anywhere; text-align: left; user-select: text; }
 .success-mark { color: #16633d; font-size: .875rem; font-weight: 700; }
 #recipient { overflow-wrap: anywhere; }
 @media (max-width: 900px) { .claim-layout { gap: 32px; padding: 16px 24px; } }

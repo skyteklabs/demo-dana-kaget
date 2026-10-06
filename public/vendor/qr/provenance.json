@@ -1,0 +1,13 @@
+{
+  "name": "Nayuki QR Code generator",
+  "version": "1.8.0",
+  "license": "MIT",
+  "repository": "https://github.com/nayuki/QR-Code-generator",
+  "commit": "720f62bddb7226106071d4728c292cb1df519ceb",
+  "source": "https://raw.githubusercontent.com/nayuki/QR-Code-generator/720f62bddb7226106071d4728c292cb1df519ceb/typescript-javascript/qrcodegen.ts",
+  "source_sha256": "f869697d42b9a89910a8e8731467366eeb36576494c4aba76e7c97cfdb5a6f31",
+  "vendored_sha256": "2abb6c259e3925129cfa7bf8a1fe97b937e763ef83e95873777a6e33ba72088c",
+  "compiler": "TypeScript 6.0.2",
+  "build": "tsc qrcodegen.ts --target ES2020 --strict --outFile qrcodegen.js --skipLibCheck --ignoreDeprecations 6.0",
+  "modification": "Append: export const { QrCode, QrSegment } = qrcodegen;"
+}

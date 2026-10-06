@@ -2,6 +2,14 @@
 
 This review covered the application source, local vendor bundle, configuration, build output, claim and email flows, analytics, and both Docker Compose files. Confirmed issues were fixed and regression-tested. It does not certify that the application has no vulnerabilities, and it does not establish the security of the deployed DNS, Traefik host, email account, or analytics dashboards.
 
+## Shared-link and QR extension
+
+`DANA_REWARD_LINK` optionally enables a shared link for all new verified emails. It remains server-only until a valid claim and is validated against the HTTPS DANA host allowlist. One claim per normalized email is persisted with its original link; repeated claims and configuration changes preserve the first reward. Existing exclusive allocations remain recoverable. A blank setting retains imported inventory for new claimants.
+
+QR encoding runs locally from a pinned, bundled encoder. No QR service receives the reward. The clickable URL below uses a native button with link semantics and `noopener,noreferrer`, retaining the protection against outbound-anchor analytics. Reset removes both QR and link content. Dense/failed QR rendering leaves the clickable link available.
+
+The shared link can be copied or forwarded after reveal. The app's per-email claim ledger cannot enforce one redemption per DANA account, prevent link sharing, or establish remaining balance/expiry. Those controls belong to DANA. Database backups and the private environment now both contain redeemable URLs. See [VALIDATION.md](VALIDATION.md) for the extension's verification results.
+
 ## Findings and changes
 
 | Finding | Exposure before this review | Remediation and evidence |
@@ -18,7 +26,7 @@ This review covered the application source, local vendor bundle, configuration, 
 
 The app containers run as a non-root app user, with root-owned source, a read-only root filesystem, dropped capabilities, no-new-privileges, a PID limit, and writable private data volumes. These controls reduce impact; they are not evidence that arbitrary code execution is impossible.
 
-## Validation performed
+## Validation performed during the security audit
 
 - `npm test`: **99 passed**, including the actual vendored SDK under stubbed transports, allocation races, OTP/session binding, provider redaction, report access control, proxy spoofing, and storage abuse/recovery.
 - `npm run check` and `npm run build`: passed.

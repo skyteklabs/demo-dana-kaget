@@ -2,9 +2,35 @@
 
 Updated 2026-10-06. Results below distinguish source tests from observed runtime behavior.
 
-## Security review — verified 2026-10-06
+## Shared DANA link and QR reveal, verified 2026-10-06
 
-The current security findings, fixes, deployment requirements and remaining limits are in [SECURITY.md](SECURITY.md). All **99 tests** pass; syntax checks and the build pass. Live reports now have application-level access control, trusted-proxy extraction prevents caller-controlled forwarded-header spoofing, request/event storage is bounded, consent is reconciled across tabs, and the real Grovs bundle is tested with its maintained privacy patch. Stock and email-throttle response disclosure were reduced with verified-OTP stock decisions and non-allocating decoys. Provider timing differences remain documented.
+`DANA_REWARD_LINK` is now available as a blank placeholder in the private `.env` and `.env.example`, and both Compose files pass it to the server. A configured link is shared by new verified emails. One claim per normalized email persists in `shared_claims`; repeated verification, restarts, changing/clearing the link and existing exclusive allocations preserve the original claim. No real reward link was configured, and existing private settings were preserved.
+
+- `npm test`: **117 passed**. New coverage includes shared claims, concurrent workers with different link settings, existing allocations, server-only link disclosure, QR encoding, navigation and reset. A separate shared/inventory worker race also returned the same reward with one claim record.
+- `npm run check` and `npm run build`: passed. Source/build hashes match for the changed server, libraries, reveal UI and bundled encoder.
+- Both Compose configurations render correctly with a synthetic shared link and with the setting blank.
+- Built `dana-kaget:shared-qr`. An isolated live-mode container, with networking disabled and normal filesystem/capability restrictions, served the new assets and passed session-bound claim checks: two synthetic verified emails received the same link; retries returned their existing claims; exactly two shared records and no exclusive allocations were stored. OTP challenges were created as test fixtures; no live email was sent. Temporary container and volume were removed.
+- An independent jsQR decoder recovered the exact input for three synthetic URLs, including query escapes, Unicode and the largest allowed QR version, at 224, 246, 256 and 280 px (**12 round trips**). A standalone synthetic QR image was visually inspected; this was not a browser layout check.
+
+### Reveal UI checks and design decisions
+
+The extension preserves the existing blue/white claim screen and system typography (energy/rhythm/motion 1/1/1). Black modules and a four-module white quiet zone serve scanning; the QR is the focal point, with the full clickable URL directly below for same-device use. The link wraps on narrow screens and the SVG scales within the existing panel. No motion, decorative assets or extra navigation were added.
+
+| Check | Result and evidence |
+| --- | --- |
+| QR content and privacy | PASS: independent decoding preserves the link exactly; SVG is generated locally with no remote URL or added network request. |
+| Link activation | PASS in component tests: opens the validated URL with `noopener,noreferrer`; callback carries no reward value. Native button with link semantics has no outbound `href`. |
+| Empty/error/reset states | PASS in component tests: invalid values cannot open, reset clears QR/text/destination, QR failure leaves link/copy access with an explanatory message, legacy codes remain readable. |
+| Contrast | PASS: link blue `#0066ad` on white measures 5.99:1; QR black/white is 21:1. |
+| Keyboard and focus implementation | PASS by source inspection: native button supports focus/activation, visible existing focus styles remain, QR is labeled and does not add a tab stop. No live keyboard click-through was performed. |
+| Content and design scope | PASS by source inspection: only returned rewards are shown; no invented reward amount, asset, statistic, or redemption claim. Existing design direction and workflow are retained. |
+| Browser delivery gate | PENDING: the earlier automatic browser security check could not verify the admin-enforced policy. Browser popup behavior, actual mobile layout, zoom and physical-device scanning are unverified; no alternate browser route was used. |
+
+This is a local source/build/container validation. Deploy the new image and fill the real link before testing the public service. The app enforces one claim per verified email; DANA controls redemption, expiry and balance for the shared link.
+
+## Security review checkpoint, verified 2026-10-06
+
+The security findings, fixes, deployment requirements and remaining limits are in [SECURITY.md](SECURITY.md). At this checkpoint, all **99 tests** passed, along with syntax checks and the build; the shared-link extension above supersedes the test count. Live reports now have application-level access control, trusted-proxy extraction prevents caller-controlled forwarded-header spoofing, request/event storage is bounded, consent is reconciled across tabs, and the real Grovs bundle is tested with its maintained privacy patch. Stock and email-throttle response disclosure were reduced with verified-OTP stock decisions and non-allocating decoys. Provider timing differences remain documented.
 
 Docker registry access recovered during this review. Patched Mailpit v1.31.4 and Node 22.23.3 images were pulled and pinned by digest. The app image built successfully. An isolated, network-disabled container passed live-mode HTTP API/authentication, cookie/header, Host, non-root, filesystem and writable-volume checks; its temporary container/volume were removed. No public deployment or provider delivery was performed. Browser smoke testing was blocked because the admin-enforced browser policy could not be verified.
 
@@ -42,7 +68,7 @@ The requested Cloudflare test keys are now explicit in `.env` with `APP_MODE=loc
 
 ## Automated checks on the final source
 
-- `npm test`: **99/99 passed**.
+- `npm test`: **117/117 passed**.
 - `npm run check`: passed syntax checking of authored JavaScript and modules.
 - `npm run build`: passed; generated `dist/` includes the server, public assets, libraries and import scripts.
 - `docker compose config --quiet`: passed.
