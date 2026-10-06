@@ -2,6 +2,15 @@
 
 Updated 2026-10-06. Results below distinguish source tests from observed runtime behavior.
 
+## GA4 collection CSP correction, verified 2026-10-06
+
+A reported GA4 request to `https://www.google.com/g/collect` was blocked because `connect-src` omitted that destination. Google's current [CSP guide](https://developers.google.com/tag-platform/security/guides/csp#google_analytics) includes Google-domain connections for Analytics without Ads features. The app now permits the exact HTTPS host/path in `connect-src`; no Google script/frame/image permission or broad Google wildcard was added. Existing consent, Google Signals and advertising-personalization settings remain unchanged.
+
+- `npm test`: **145 passed**, including the form response's narrow CSP allowance and GA4's existing denied advertising consent/disabled Signals settings.
+- `npm run check` and `npm run build`: passed. Source and built security policy match.
+- The built server returned HTTP 200 for actual local GET and HEAD requests to the form, with the new allowance in its response header. No Google collection request was sent.
+- Production deployment and browser GA4 receipt were not verified. Rebuild/recreate the deployed app and reload the page; any separately configured proxy CSP must also allow the connection. The earlier browser-policy verification block remains unresolved.
+
 ## Meta Conversions API, verified 2026-10-06
 
 The integration sends explicit server events to an existing Meta Pixel/dataset. No Meta browser SDK is loaded. Private environment placeholders, both Compose files, public configuration, current-scope consent, first-claim delivery and operator counters are wired together.
@@ -83,7 +92,7 @@ The requested Cloudflare test keys are now explicit in `.env` with `APP_MODE=loc
 
 ## Automated checks on the final source
 
-- `npm test`: **144/144 passed**.
+- `npm test`: **145/145 passed**.
 - `npm run check`: passed syntax checking of authored JavaScript and modules.
 - `npm run build`: passed; generated `dist/` includes the server, public assets, libraries and import scripts.
 - `docker compose config --quiet`: passed.

@@ -198,6 +198,12 @@ test('GA4 excludes current query/hash/referrer and disables automatic page views
   const commands = window.dataLayer.map(args => [...args]);
   const config = commands.find(args => args[0] === 'config')[2];
   assert.equal(config.send_page_view, false);
+  assert.equal(config.allow_google_signals, false);
+  assert.equal(config.allow_ad_personalization_signals, false);
+  const consent = commands.filter(args => args[0] === 'consent').reduce((state, args) => ({ ...state, ...args[2] }), {});
+  assert.deepEqual(consent, {
+    analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+  });
   assert.equal(config.page_location, 'https://demo.example/dana-kaget');
   assert.equal(config.page_referrer, '');
   assert.equal(JSON.stringify(commands).includes('private'), false);

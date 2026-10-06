@@ -134,3 +134,22 @@ test('responses prevent framing and script injection and use HSTS in live mode',
   assert.equal(response.headers['content-security-policy'].includes("'unsafe-eval'"), false);
   assert.match(response.headers['strict-transport-security'], /max-age=31536000/);
 });
+
+test('form CSP permits the reported GA4 collection path without allowing other Google resources', async () => {
+  const response = await request(createHandler({ env: live }), '/dana-kaget');
+  assert.equal(response.status, 200);
+  const directives = new Map(response.headers['content-security-policy'].split(';').map(value => {
+    const [name, ...sources] = value.trim().split(/\s+/);
+    return [name, sources];
+  }));
+  const googleSources = sources => sources.filter(source => /^https:\/\/(?:[^/]+\.)?google\.com(?:\/|$)/.test(source));
+  assert.deepEqual(googleSources(directives.get('connect-src')), [
+    'https://analytics.google.com', 'https://*.analytics.google.com', 'https://www.google.com/g/collect',
+  ]);
+  for (const directive of ['script-src', 'frame-src', 'img-src']) {
+    assert.deepEqual(googleSources(directives.get(directive)), [], directive);
+  }
+  assert.equal(directives.get('connect-src').includes('*'), false);
+  assert.equal(directives.get('connect-src').includes('https:'), false);
+  assert.equal(response.headers['content-security-policy'].includes('doubleclick.net'), false);
+});
