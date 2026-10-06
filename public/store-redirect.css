@@ -1,0 +1,12 @@
+.store-page { background: var(--paper); }
+.store-page .header { max-width: 1180px; }
+.store-page .brand { display: inline-flex; align-items: center; min-height: 44px; gap: .25em; }
+.store-main { width: 100%; max-width: 660px; margin: 28px auto 64px; padding: 16px 18px; }
+.store-main h1 { font-size: clamp(2rem, 5vw, 3rem); }
+.store-main .lead { margin-bottom: 24px; }
+.store-links { display: grid; gap: 12px; max-width: 420px; }
+.store-link { min-height: 60px; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; text-align: left; }
+.store-link span { font-size: .8125rem; font-weight: 400; }
+.store-link:active { background: #004a81; }
+.store-other { display: inline-flex; align-items: center; min-height: 44px; margin-top: 18px; padding-block: 8px; }
+@media (min-width: 700px) { .store-main { margin-top: 60px; padding: 24px; } }

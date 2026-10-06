@@ -56,6 +56,29 @@ Forwarded addresses are used only when the direct peer matches `TRUSTED_PROXY_CI
 
 Both Compose app services run without root privileges, with a read-only root filesystem, all Linux capabilities dropped, privilege escalation disabled, and a bounded temporary filesystem. Only the data volume and temporary directory are writable. These files prepare deployment; the repository audit does not establish that the production stack has been deployed or validated.
 
+## App-store redirect pages
+
+Three lightweight landing pages are available on the same hostname:
+
+| Route | Behavior |
+| --- | --- |
+| `/android` | Opens Google Play, regardless of the current device. |
+| `/ios` | Opens the App Store, regardless of the current device. |
+| `/platform` | Opens the matching store on Android or iOS/iPadOS; desktop and unknown devices show both store choices. |
+
+Each page renders a manual store link before attempting a short JavaScript redirect. With JavaScript disabled, the native links still work. Trailing-slash routes are supported. These are store redirects, not installed-app detection, Universal Links, Android App Links or deferred deep linking.
+
+The dummy flow defaults to the supplied Google Translate listings. These values are set in `.env.example` and can be changed in the private `.env`:
+
+```dotenv
+ANDROID_STORE_URL=https://play.google.com/store/apps/details?id=com.google.android.apps.translate&hl=en
+IOS_STORE_URL=https://apps.apple.com/us/app/google-translate/id414706506
+```
+
+Blank settings also use those Google Translate listings. HTTPS on the exact `play.google.com` and `apps.apple.com` hosts is required; credentials and custom ports are rejected with `invalid_store_configuration`. These destinations are public links. Both Compose files pass them to the app; apply edits with `docker compose -f docker-compose.traefik.yml up -d --build --force-recreate app`.
+
+The pages do not load claim, CAPTCHA or analytics scripts, create a claim session, or forward incoming query parameters/hash fragments to the stores. Redirects use the configured destination only; a visitor cannot supply a different `url` or `redirect` parameter. Device detection is best effort, and manual links remain available if automatic navigation is blocked.
+
 ## Configure the shared DANA link
 
 Fill the blank `DANA_REWARD_LINK` setting in your private `.env` with the actual DANA link. The example below shows the format only; replace the token before starting:

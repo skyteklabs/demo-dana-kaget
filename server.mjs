@@ -11,6 +11,8 @@ import { claimService } from './lib/claim-service.mjs';
 import { createHttpSecurity, createRequestLimiter } from './lib/http-security.mjs';
 import { createMetaConversions, metaConfig } from './lib/meta-conversions.mjs';
 import { CONSENT_VERSION } from './public/analytics/consent.js';
+import { appStoreConfig } from './lib/app-stores.mjs';
+import { renderStorePage } from './lib/store-page.mjs';
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
 const types = { '.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
@@ -20,6 +22,7 @@ export function createHandler({ store, claims, meta, env = process.env, limiter 
   const security = createHttpSecurity(env, config);
   const metaSettings = metaConfig(env, config.origin);
   const conversions = meta || createMetaConversions(metaSettings);
+  const appStores = appStoreConfig(env);
   const sendMeta = (event, request, ip) => {
     try { conversions.send(event, { ip, userAgent: request.headers['user-agent'] }); }
     catch { /* Ad measurement must not interrupt a claim or local analytics. */ }
@@ -91,6 +94,8 @@ export function createHandler({ store, claims, meta, env = process.env, limiter 
         response.setHeader('allow', 'GET, HEAD');
         return send(405, { error: 'Method not allowed' });
       }
+      const storePage = /^\/(android|ios|platform)\/?$/.exec(pathname)?.[1];
+      if (storePage) return send(200, renderStorePage(storePage, appStores), 'text/html');
       if (pathname === '/healthz') return send(200, { status: 'ok' });
       if (pathname === '/api/config') {
         if (!sessionPattern.test(request.headers.cookie || '')) {

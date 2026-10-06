@@ -2,6 +2,30 @@
 
 Updated 2026-10-06. Results below distinguish source tests from observed runtime behavior.
 
+## App-store redirect pages, verified 2026-10-06
+
+`/android` and `/ios` render simple landing pages and attempt navigation after one second to the supplied Google Translate listings. `/platform` detects Android, iPhone/iPad/iPod and iPadOS desktop-style identification; desktop/unknown devices retain both choices. Native fallback links render before JavaScript runs. Both trailing-slash and HEAD requests are supported.
+
+- `npm test`: **155 passed**. New coverage checks device selection, forced-platform precedence, delayed navigation, manual cancellation, visible failure fallback, native links without JavaScript, URL attribute escaping, exact official store hosts, invalid configuration redaction, ignored inbound query/hash data, and no claim-session or analytics initialization on these pages.
+- `npm run check` and `npm run build`: passed. Source/build hashes match for all five changed/new runtime files.
+- `.env.example`, the private `.env`, and source defaults use the supplied Google Translate URLs. Other private settings are preserved and `.env` remains mode 0600. Both Compose files pass `ANDROID_STORE_URL` and `IOS_STORE_URL`.
+- Both Compose configurations passed URL pass-through and blank-setting fallback checks. Built `dana-kaget:store-pages` (`sha256:a71343b8de1b8a841fd37d1e73c375b873a4396af80831734604efd6c1397a8b`). An isolated hardened container with networking disabled passed 18 GET/HEAD cases across the three routes, trailing slashes and hostile query strings; native links and three assets were correct, no cookies were set, the event journal remained empty and Meta attempts remained zero. Temporary resources were removed; the existing stack was not recreated.
+
+### Store-page UI review
+
+The design extends the existing Dana Kaget blue/white wordmark and system typography, with ENERGY/RHYTHM/MOTION **1/1/1**. One heading and the store links form the focal point; spacing separates the status from the action. The page needs only a handoff message and destination choices, so it adds no decorative assets, animation, claims or extra sections. The existing text wordmark supplies continuity with the claim page.
+
+| Check | Result and evidence |
+| --- | --- |
+| Content and direction | PASS: generic store copy, supplied real destinations, existing brand/style; no invented app ownership, statistics, testimonials or assets. |
+| Functional links and states | PASS in source/component tests: native store `href`s, link to the existing claim page, alternate-store route, chooser, pending redirect and blocked-navigation fallback. Timer cancellation and fixed destination selection are tested. |
+| Privacy and routing | PASS in tests: only configured official HTTPS store URLs, escaped attributes, no inbound query/hash forwarding, no analytics modules or claim session. |
+| Color and focus | PASS: contrast script gives button/link 5.99:1, hover 9.14:1, muted text 6.34:1, heading 14.24:1 and focus outline 7.89:1 on white. Existing focus styles remain. |
+| Mobile and keyboard implementation | PASS by source inspection: fluid width, wrapping store links, 60 px primary targets, 44 px secondary targets, native anchors and DOM order; no new theme toggle, fixed overlay, images or motion. |
+| Browser delivery gate | UNVERIFIED: actual keyboard click-through, narrow-screen overflow, 200% zoom and store-app handoff were not observed. The earlier automatic browser security check could not verify the admin-enforced policy; no alternate browser route was used. |
+
+These checks validate implementation and built artifacts, not a production deployment or physical-device app-store handoff. Setup is documented in [README.md](README.md#app-store-redirect-pages).
+
 ## GA4 collection CSP correction, verified 2026-10-06
 
 A reported GA4 request to `https://www.google.com/g/collect` was blocked because `connect-src` omitted that destination. Google's current [CSP guide](https://developers.google.com/tag-platform/security/guides/csp#google_analytics) includes Google-domain connections for Analytics without Ads features. The app now permits the exact HTTPS host/path in `connect-src`; no Google script/frame/image permission or broad Google wildcard was added. Existing consent, Google Signals and advertising-personalization settings remain unchanged.
@@ -92,7 +116,7 @@ The requested Cloudflare test keys are now explicit in `.env` with `APP_MODE=loc
 
 ## Automated checks on the final source
 
-- `npm test`: **145/145 passed**.
+- `npm test`: **155/155 passed**.
 - `npm run check`: passed syntax checking of authored JavaScript and modules.
 - `npm run build`: passed; generated `dist/` includes the server, public assets, libraries and import scripts.
 - `docker compose config --quiet`: passed.
