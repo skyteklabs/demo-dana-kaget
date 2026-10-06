@@ -2,20 +2,28 @@ import { readFile, realpath } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createEventStore } from './lib/event-store.mjs';
+import { cleanEvent, createEventStore } from './lib/event-store.mjs';
 import { buildReport } from './lib/report.mjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createClaimStore } from './lib/claims.mjs';
 import { claimConfig, delivery } from './lib/delivery.mjs';
 import { claimService } from './lib/claim-service.mjs';
 import { createHttpSecurity, createRequestLimiter } from './lib/http-security.mjs';
+import { createMetaConversions, metaConfig } from './lib/meta-conversions.mjs';
+import { CONSENT_VERSION } from './public/analytics/consent.js';
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
 const types = { '.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
-export function createHandler({ store, claims, env = process.env, limiter = createRequestLimiter() } = {}) {
+export function createHandler({ store, claims, meta, env = process.env, limiter = createRequestLimiter() } = {}) {
   const config = claimConfig(env);
   const security = createHttpSecurity(env, config);
+  const metaSettings = metaConfig(env, config.origin);
+  const conversions = meta || createMetaConversions(metaSettings);
+  const sendMeta = (event, request, ip) => {
+    try { conversions.send(event, { ip, userAgent: request.headers['user-agent'] }); }
+    catch { /* Ad measurement must not interrupt a claim or local analytics. */ }
+  };
   const sessionName = config.local ? 'dana_session' : '__Host-dana_session';
   const sessionPattern = new RegExp(`(?:^|;\\s*)${sessionName}=([a-f0-9]{64})(?:;|$)`);
   return async function handle(request, response) {
@@ -59,13 +67,25 @@ export function createHandler({ store, claims, env = process.env, limiter = crea
           const session = request.headers.cookie?.match(sessionPattern)?.[1];
           if (!session) return send(401, { error: 'session_expired' });
           const result = pathname === '/api/code/request' ? await claims.request(body, session, ip) : await claims.claim(body, session, ip);
+          if (pathname === '/api/claim' && result.recovered === false && metaSettings.enabled
+              && body.analyticsConsent === 'granted' && body.consentVersion === CONSENT_VERSION) {
+            sendMeta({ name: 'CompleteRegistration', id: randomUUID(), at: Date.now() }, request, ip);
+          }
           return send(200, result);
         }
         if (!body || body.consent !== 'granted') return send(403, { error: 'Consent required' });
         if (!Array.isArray(body.events) || !body.events.length || body.events.length > 20) return send(400, { error: 'Send 1 to 20 events' });
         const retry = limiter.check(`events:${ip}`, 600, body.events.length);
         if (retry) { response.setHeader('retry-after', String(retry)); return send(429, { error: 'rate_limited', retryAfter: retry }); }
-        return send(200, { accepted: await store.append(body.events) });
+        const accepted = await store.append(body.events);
+        if (metaSettings.enabled && body.metaConsent === true && body.consentVersion === CONSENT_VERSION) {
+          for (const raw of body.events) {
+            if (raw?.name !== 'dk_page_view') continue;
+            const event = cleanEvent(raw);
+            if (event) sendMeta({ name: 'PageView', id: event.id, at: event.at }, request, ip);
+          }
+        }
+        return send(200, { accepted });
       }
       if (!['GET', 'HEAD'].includes(request.method)) {
         response.setHeader('allow', 'GET, HEAD');
@@ -80,9 +100,10 @@ export function createHandler({ store, claims, env = process.env, limiter = crea
         ga4MeasurementId: env.GA4_MEASUREMENT_ID || '', grovsApiKey: env.GROVS_API_KEY || '',
         grovsTestEnvironment: env.GROVS_TEST_ENVIRONMENT !== 'false', debug: env.ANALYTICS_DEBUG !== 'false',
         turnstileSiteKey: config.siteKey, localMode: config.local, reportsAvailable: security.reportsAvailable,
+        metaConversionsEnabled: metaSettings.enabled,
       });
       }
-      if (pathname === '/api/report') return send(200, buildReport(store.all()));
+      if (pathname === '/api/report') return send(200, { ...buildReport(store.all()), meta: conversions.snapshot() });
       if (pathname === '/api/events/export') {
         response.setHeader('content-disposition', 'attachment; filename="dana-kaget-events.json"');
         return send(200, store.all());

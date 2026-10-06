@@ -1,6 +1,7 @@
 import { AnalyticsTracker, CONSENT_KEY } from './analytics/tracker.js';
 import { googleProvider, grovsProvider } from './analytics/providers.js';
 import { localProvider } from './analytics/collector.js';
+import { claimAnalyticsConsent } from './analytics/consent.js';
 import { Journey } from './analytics/journey.js';
 import { validateField } from './form-schema.js';
 import { createRewardView } from './reward-view.js';
@@ -192,7 +193,10 @@ async function claim() {
   busy = true; updateControls();
   const started = Date.now();
   try {
-    const result = await api('/api/claim', { requestId: challenge.requestId, verificationCode: $('#verification_code').value.trim() });
+    const result = await api('/api/claim', {
+      requestId: challenge.requestId, verificationCode: $('#verification_code').value.trim(),
+      ...claimAnalyticsConsent(tracker, config.metaConversionsEnabled),
+    });
     if (!rewardView.render(result.reward)) throw { code: 'service_unavailable' };
     reward = result.reward;
     journey.continued(); showStep(2); journey.continued(); journey.complete(result.recovered);
@@ -220,11 +224,19 @@ function inspector(snapshot) {
     item.append(title, details); return item;
   }));
 }
+function showConsentStatus() {
+  const granted = tracker.consent === 'granted';
+  $('#consent-status').textContent = granted
+    ? (config.metaConversionsEnabled ? 'Analitik dan pengukuran iklan diizinkan. Anda dapat menonaktifkannya kapan saja.' : 'Analitik diizinkan. Anda dapat menonaktifkannya kapan saja.')
+    : tracker.consent === 'pending' ? 'Pilihan tidak memengaruhi klaim. Dapat diubah kapan saja.' : 'Pengukuran dinonaktifkan. Klaim tetap dapat dilanjutkan.';
+}
 async function chooseConsent(state) {
+  tracker.syncConsent();
   const changed = tracker.consent !== state;
   await tracker.setConsent(state);
-  $('#consent-status').textContent = state === 'granted' ? 'Analitik diizinkan. Anda dapat menonaktifkannya kapan saja.' : 'Analitik dinonaktifkan. Klaim tetap dapat dilanjutkan.';
-  if (state === 'granted' && changed) {
+  showConsentStatus();
+  if (tracker.consent === 'granted' && changed) {
+    event('dk_page_view', { reason: 'consent' });
     event('dk_form_view', { reason: 'consent' });
     event('dk_step_view', { reason: 'consent' });
     if (journey.started && !journey.finished) event('dk_form_start', { reason: 'consent' });
@@ -301,7 +313,7 @@ function bind() {
   window.addEventListener('storage', e => {
     if (e.key !== CONSENT_KEY && e.key !== null) return;
     tracker.syncConsent();
-    if (tracker.consent !== 'granted') $('#consent-status').textContent = 'Analitik dinonaktifkan. Klaim tetap dapat dilanjutkan.';
+    showConsentStatus();
   });
   let lastScroll = -1;
   window.addEventListener('scroll', () => {
@@ -327,15 +339,20 @@ async function main() {
   const response = await fetch('/api/config', { credentials: 'same-origin' });
   if (!response.ok) throw new Error();
   config = await response.json();
-  local = localProvider({ storage: storage('sessionStorage') });
-  tracker = new AnalyticsTracker({ storage: storage('localStorage'), journeyStorage: storage('sessionStorage'), providers: [local, googleProvider(config, { window, document }), grovsProvider(config)] });
+  local = localProvider({ storage: storage('sessionStorage'), consentStorage: storage('localStorage'), metaEnabled: config.metaConversionsEnabled });
+  tracker = new AnalyticsTracker({ storage: storage('localStorage'), journeyStorage: storage('sessionStorage'), metaEnabled: config.metaConversionsEnabled, providers: [local, googleProvider(config, { window, document }), grovsProvider(config)] });
   journey = new Journey(tracker);
   $('#local-notice').hidden = !config.localMode;
   $('#local-inbox').hidden = !config.localMode;
   $('#reports-link').hidden = !config.reportsAvailable;
   $('#inspector').hidden = !config.debug;
+  $('#meta-consent-notice').hidden = !config.metaConversionsEnabled;
+  if (config.metaConversionsEnabled) {
+    $('#accept').textContent = 'Izinkan analitik dan pengukuran iklan';
+    $('#decline').textContent = 'Tanpa pengukuran';
+  }
   bind();
-  if (tracker.consent !== 'pending') void chooseConsent(tracker.consent);
+  showConsentStatus();
   void tracker.start();
   event('dk_page_view'); event('dk_form_view'); showStep(0, false);
   if (tracker.resumed) event('dk_form_resume', { reason: 'reload' });

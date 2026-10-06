@@ -1,8 +1,9 @@
 import { isEventName, sanitizeProperties, UUID_PATTERN } from './events.js';
+import { CONSENT_KEY } from './consent.js';
 
-export const CONSENT_KEY = 'dana.analytics.consent.v1';
+export { CONSENT_KEY } from './consent.js';
 const CONSENT_LIFETIME = 180 * 24 * 60 * 60 * 1000;
-export const JOURNEY_KEY = 'dana.analytics.journey.v1';
+export const JOURNEY_KEY = 'dana.analytics.journey.v2';
 
 export class AnalyticsTracker {
   #records = [];
@@ -18,15 +19,22 @@ export class AnalyticsTracker {
   #journeyStorage;
   #sequence = 0;
   #ended = false;
+  #consentAt;
+  #consentGrantId;
+  #metaEnabled;
   resumed = false;
 
-  constructor({ providers = [], storage, journeyStorage, clock = Date.now, uuid = () => crypto.randomUUID(), limit = 300 } = {}) {
+  constructor({ providers = [], storage, journeyStorage, clock = Date.now, uuid = () => crypto.randomUUID(), limit = 300, metaEnabled = false } = {}) {
     this.#storage = storage;
     this.#clock = clock;
     this.#uuid = uuid;
     this.#limit = limit;
+    this.#metaEnabled = metaEnabled === true;
     this.#providers = providers.map(adapter => ({ adapter, status: adapter.configured ? 'waiting_consent' : 'not_configured' }));
-    this.consent = this.#readConsent();
+    const savedConsent = this.#readConsent();
+    this.consent = savedConsent.state;
+    this.#consentAt = savedConsent.at;
+    this.#consentGrantId = savedConsent.grantId;
     this.#journeyId = this.#uuid();
     this.#journeyStorage = journeyStorage;
     if (this.consent === 'granted') {
@@ -43,14 +51,18 @@ export class AnalyticsTracker {
   }
 
   #readConsent(fallback = 'pending') {
-    if (!this.#storage) return fallback;
+    if (!this.#storage) return { state: fallback, at: this.#consentAt, grantId: this.#consentGrantId };
     try {
       const saved = JSON.parse(this.#storage?.getItem(CONSENT_KEY) || 'null');
       if (saved && ['granted', 'denied'].includes(saved.state)
           && Number.isFinite(saved.at) && saved.at <= this.#clock()
-          && this.#clock() - saved.at < CONSENT_LIFETIME) return saved.state;
+          && this.#clock() - saved.at < CONSENT_LIFETIME) {
+        if (saved.state === 'granted' && !UUID_PATTERN.test(saved.grantId)) return { state: 'pending' };
+        if (saved.state === 'granted' && this.#metaEnabled && saved.metaConsent !== true) return { state: 'pending' };
+        return saved;
+      }
     } catch { /* Storage may be unavailable in private browsing. */ }
-    return 'pending';
+    return { state: 'pending' };
   }
 
   async start() {
@@ -60,8 +72,14 @@ export class AnalyticsTracker {
 
   syncConsent() {
     const stored = this.#readConsent(this.consent);
-    if (stored === 'granted' || stored === this.consent) return;
-    this.consent = stored;
+    if (stored.state === 'granted') {
+      if (this.consent !== 'granted' || (stored.at === this.#consentAt && stored.grantId === this.#consentGrantId)) return;
+      // A newer grant may follow a withdrawal that this tab did not observe.
+      this.consent = 'pending';
+    } else {
+      if (stored.state === this.consent) return;
+      this.consent = stored.state;
+    }
     this.#disableProviders();
     this.#notify();
   }
@@ -133,8 +151,10 @@ export class AnalyticsTracker {
     if (!['granted', 'denied'].includes(state)) throw new TypeError('Invalid consent state');
     const changed = this.consent !== state;
     this.consent = state;
+    this.#consentAt = this.#clock();
+    this.#consentGrantId = state === 'granted' ? crypto.randomUUID() : undefined;
     try {
-      this.#storage?.setItem(CONSENT_KEY, JSON.stringify({ state, at: this.#clock() }));
+      this.#storage?.setItem(CONSENT_KEY, JSON.stringify({ state, at: this.#consentAt, grantId: this.#consentGrantId, metaConsent: state === 'granted' && this.#metaEnabled }));
     } catch { /* Delivery checks the persisted choice again before sending. */ }
     if (state === 'denied') {
       this.#disableProviders();

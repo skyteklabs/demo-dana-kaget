@@ -2,6 +2,21 @@
 
 Updated 2026-10-06. Results below distinguish source tests from observed runtime behavior.
 
+## Meta Conversions API, verified 2026-10-06
+
+The integration sends explicit server events to an existing Meta Pixel/dataset. No Meta browser SDK is loaded. Private environment placeholders, both Compose files, public configuration, current-scope consent, first-claim delivery and operator counters are wired together.
+
+- `npm test`: **144 passed**. Coverage includes configuration validation, fixed Graph requests, payload exclusion, bounded/redacted failures, deduplication, current consent/version/scope, same-millisecond withdrawal/regrant, inactive-tab queue replay, and previously analytics-only grants when Meta is enabled later.
+- Server tests use actual cookie-bound OTP claims and SQLite: a new verified claim emits one conversion, retries/reverification recover without another, invalid sessions/codes do not emit, client success events cannot create conversions, and delivery failure does not change claim success. Public configuration excludes credentials; live report counters require operator authentication.
+- `npm run check` and `npm run build`: passed, including the new server module and browser consent module.
+- Both Compose files passed rendering and application configuration checks with synthetic live/Meta settings. All four Meta variables reach the app; Traefik retains its external network, internal-only port and container restrictions.
+- Built `dana-kaget:meta-capi` (`sha256:e226948a3613a8e6e04d22307d5a9cb3b2f15e3fca731a84acd6d1badedc34e5`). An isolated hardened container with networking disabled passed health, non-root, read-only source, writable data, secure cookie, public configuration redaction, operator report authorization/counters and packaged consent-module checks. The image contains no private `.env`. Temporary container, volume and Docker configuration were removed; the existing stack was not recreated.
+- Source/build hashes match for all seven changed runtime files. Blank Meta placeholders were added to the existing private `.env` without changing prior settings; it remains mode 0600.
+- Provider transports are injected test doubles. No actual Meta token or Pixel ID was configured, no live event was sent, and Events Manager acceptance, permissions and attribution remain unverified.
+- The earlier automatic browser security check could not verify the admin-enforced policy. No alternative browser route was used; the updated notice and consent behavior have source/component coverage, without a new browser walkthrough.
+
+Delivery is immediate and best effort. A process-local 48-hour ID cache prevents repeated submissions during its retained window, but there is no durable retry/exactly-once guarantee. Setup, test-event instructions and operational counters are documented in [README.md](README.md#meta--facebook-integration).
+
 ## Shared DANA link and QR reveal, verified 2026-10-06
 
 `DANA_REWARD_LINK` is now available as a blank placeholder in the private `.env` and `.env.example`, and both Compose files pass it to the server. A configured link is shared by new verified emails. One claim per normalized email persists in `shared_claims`; repeated verification, restarts, changing/clearing the link and existing exclusive allocations preserve the original claim. No real reward link was configured, and existing private settings were preserved.
@@ -68,7 +83,7 @@ The requested Cloudflare test keys are now explicit in `.env` with `APP_MODE=loc
 
 ## Automated checks on the final source
 
-- `npm test`: **117/117 passed**.
+- `npm test`: **144/144 passed**.
 - `npm run check`: passed syntax checking of authored JavaScript and modules.
 - `npm run build`: passed; generated `dist/` includes the server, public assets, libraries and import scripts.
 - `docker compose config --quiet`: passed.
@@ -77,7 +92,7 @@ Coverage includes cookie-bound claims, server CAPTCHA failures, live hostname/ac
 
 Analytics tests cover no initialization/delivery before consent, no replay on grant, withdrawal during initialization, regrant, retry queues, event deduplication, reload identity, post-claim copy events, field timing, idle/hidden tabs, unique-journey funnels and the distinction between submission and confirmed continuation.
 
-Provider requests are tested with injected transports. Those tests do not prove live Kirim.Email or Cloudflare connectivity.
+Provider requests are tested with injected transports. Those tests do not prove live Kirim.Email, Cloudflare or Meta connectivity.
 
 ## Docker and browser observations — historical checkpoint
 
@@ -107,7 +122,7 @@ Primary button/link blue `#0066ad` against white: **5.99:1**. Muted text `#4c627
 ## Not yet validated
 
 - A real DANA inventory file: the user confirmed `https://dana.id/<random_code>` entries, which are supported, but has not supplied a file path. Placeholder URLs are rejected.
-- Live Kirim.Email delivery, verified sending domain, real Turnstile credentials/hostname, GA4 and Grovs delivery.
+- Live Kirim.Email delivery, verified sending domain, real Turnstile credentials/hostname, GA4, Grovs and Meta delivery.
 - Redemption or validity of imported codes in DANA; the app has no DANA redemption callback or API.
 - Public deployment, deployed operator reporting and trusted-proxy settings, load testing and disaster recovery. Local source/API/container checks are recorded above.
 

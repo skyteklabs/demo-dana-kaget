@@ -119,6 +119,8 @@ The example file defaults to `APP_MODE=live`. Copy it to your private environmen
 | `TRUSTED_PROXY_CIDRS` | Comma-separated trusted proxy addresses/CIDRs; required for Traefik, empty for direct/local access. Prefer Traefik's exact `/32` or `/128`. |
 | `REPORTS_USER`, `REPORTS_PASSWORD` | Optional HTTP Basic credentials for reports; live reports stay disabled unless both are set. Password must be 32–1024 characters. |
 | `GA4_MEASUREMENT_ID`, `GROVS_API_KEY` | Optional public analytics SDK identifiers. |
+| `META_PIXEL_ID`, `META_ACCESS_TOKEN` | Optional Meta Pixel/dataset ID and server-only Conversions API token; set both to enable. |
+| `META_API_VERSION`, `META_TEST_EVENT_CODE` | Graph version (default `v26.0`) and optional Events Manager test code. |
 | `ANALYTICS_DEBUG=false` | Hides the form's local event inspector. |
 
 Local and live modes use separate databases (`dana-local.sqlite` and `dana-live.sqlite`). Import the real inventory while the application is configured in the intended mode. A local key is generated privately when no `CLAIM_SECRET` is configured. Changing this secret makes existing email/challenge hashes unusable: preserve it with the database.
@@ -178,6 +180,48 @@ Before enabling GA4, disable **Enhanced Measurement** and **automatic user-provi
 The vendored Grovs SDK has a reviewed local privacy patch. The adapter sets `captureDeepLinks: false`, so current `Grovs`/`linksquared` URL parameters and saved attribution paths are excluded; paths in previously queued events are removed before transmission too. Deep-link campaign attribution is disabled. See the [patch and reproduction instructions](public/vendor/grovs/PRIVACY-PATCH.md) and [provenance hashes](public/vendor/grovs/provenance.json) before upgrading the SDK.
 
 The event journal accepts batches of up to 20 events with at most 64 pending batches; excess pending work returns 503 for retry. It retains at most 100,000 events and compacts to the most recent 90,000 when that limit is exceeded, discarding the oldest records. Report timelines and counts therefore cover the retained window and can lose earlier parts of a journey. Export/archive events privately before rotation if you need a longer history. This bounded journal is not an archival analytics database.
+
+## Meta / Facebook integration
+
+The app connects your existing Meta Pixel/dataset through the **server-side Conversions API**. It does not load the Meta browser SDK. Set these values in your private `.env`; the placeholders in `.env.example` and both Compose files are ready:
+
+```dotenv
+META_PIXEL_ID=your_numeric_pixel_or_dataset_id
+META_ACCESS_TOKEN=your_private_conversions_api_token
+META_API_VERSION=v26.0
+META_TEST_EVENT_CODE=
+```
+
+Replace both credential placeholders with real values. Both blank disables Meta; setting only one, a nonnumeric ID, or malformed configuration prevents startup with `invalid_meta_configuration`. The access token and test code stay on the server. `/api/config` exposes only `metaConversionsEnabled`.
+
+| Meta event | Trigger |
+| --- | --- |
+| `PageView` | A consented `dk_page_view`, including a fresh view when the visitor grants permission. Client retries retain the event ID. |
+| `CompleteRegistration` | The server records a new claim after cookie-bound OTP verification, with current consent attached to the claim request. Recovering an existing claim does not send another conversion. |
+
+Client-reported claim success, accepted email requests and reward-link clicks do not create Meta conversions. `CompleteRegistration` measures the first recorded app claim, not DANA redemption.
+
+When Meta is configured, the consent notice names Facebook/Instagram ad measurement and explains that Meta receives the visitor's IP address and browser user-agent. The app sends only those matching fields, the event name/time/ID, and the fixed `${PUBLIC_ORIGIN}/dana-kaget` URL. It does not include email or email hashes, OTPs, rewards, referrers, query strings, form values, browser click identifiers or arbitrary event properties. Matching metadata is not added to the local event journal. Configure `TRUSTED_PROXY_CIDRS` correctly so Meta receives the visitor's address rather than Traefik's.
+
+Consent uses a new version with an explicit Meta scope and a unique grant ID. Earlier consent and retry queues are discarded; an analytics-only grant cannot activate Meta when the integration is enabled later. Withdrawal stops new sends and discards pending browser events across tabs, including tabs that missed withdrawal and a subsequent grant. Requests already sent cannot be recalled. The claim flow works without analytics permission.
+
+To check the integration:
+
+1. In Meta Events Manager, select the matching Pixel/dataset, open **Test Events**, and copy its test code into `META_TEST_EVENT_CODE`.
+2. Rebuild and recreate the service after editing `.env`:
+
+   ```sh
+   docker compose -f docker-compose.traefik.yml up -d --build --force-recreate app
+   ```
+
+3. Visit the form, allow analytics and ad measurement, then complete a first claim using a test email. Check Events Manager for **Server** events `PageView` and `CompleteRegistration`. Browser Pixel Helper does not detect this server-only integration.
+4. Clear `META_TEST_EVENT_CODE` and recreate the service before collecting production events. Keep the Pixel ID and token configured.
+
+The existing `/api/report` response includes `meta` counters. Live access requires the configured operator credentials. `attempted` counts requests, `accepted` counts responses with `events_received: 1`, `failed` counts delivery failures, `dropped` counts invalid/capacity-limited events, and `duplicates` counts repeated IDs. Counters reset on restart; acceptance does not establish ad attribution or a production business result. Provider response bodies and tokens are never exposed in diagnostics.
+
+Delivery is best effort: at most eight requests run concurrently, each with a five-second timeout, no redirects, and a bounded response. There is no server retry queue. A process-local cache retains up to 10,000 event IDs for 48 hours; it does not promise exactly-once delivery across restarts. A failed first-claim delivery is not resent by recovering that claim. Local collector acknowledgement does not mean Meta accepted the event, and Meta failures do not fail claims. This minimizes retained visitor data but can lose conversions during outages or saturation.
+
+The request format and test-code handling follow Meta's [official Conversions API sample](https://github.com/fbsamples/lead-ads-webhook-sample/blob/main/postman/FB%20Conversions%20API%20(Part%201%20-%20online).postman_collection.json) and [server event request implementation](https://github.com/facebook/facebook-nodejs-business-sdk/blob/main/src/objects/serverside/event-request.js). The default API version follows the [official SDK](https://github.com/facebook/facebook-nodejs-business-sdk/blob/main/src/api.js). Real token permissions, event acceptance and attribution must be verified in your Meta account.
 
 ## Validation
 

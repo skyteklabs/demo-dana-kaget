@@ -1,6 +1,8 @@
-const QUEUE_KEY = 'dana.analytics.queue.v1';
+import { CONSENT_KEY, CONSENT_VERSION, QUEUE_KEY } from './consent.js';
+import { UUID_PATTERN } from './events.js';
+const LEGACY_QUEUE_KEY = 'dana.analytics.queue.v1';
 
-export function localProvider({ fetcher = (...args) => fetch(...args), beacon = (...args) => navigator.sendBeacon(...args), storage, schedule = setTimeout, cancel = clearTimeout } = {}) {
+export function localProvider({ fetcher = (...args) => fetch(...args), beacon = (...args) => navigator.sendBeacon(...args), storage, consentStorage, metaEnabled = false, schedule = setTimeout, cancel = clearTimeout } = {}) {
   let active = false;
   let allowed = () => false;
   let queue = [];
@@ -11,9 +13,14 @@ export function localProvider({ fetcher = (...args) => fetch(...args), beacon = 
   let acknowledged = 0;
   let dropped = 0;
   let status = 'waiting_consent';
+  let consentAt;
+  let consentGrantId;
+  let metaConsent = false;
+  const payload = events => ({ consent: 'granted', consentVersion: CONSENT_VERSION, metaConsent, events });
   const save = () => {
     try {
-      if (active && queue.length) storage?.setItem(QUEUE_KEY, JSON.stringify(queue));
+      storage?.removeItem(LEGACY_QUEUE_KEY);
+      if (active && queue.length) storage?.setItem(QUEUE_KEY, JSON.stringify({ consentAt, consentGrantId, metaConsent, events: queue }));
       else storage?.removeItem(QUEUE_KEY);
     } catch { /* In-memory delivery remains available when storage is blocked. */ }
   };
@@ -25,7 +32,7 @@ export function localProvider({ fetcher = (...args) => fetch(...args), beacon = 
     if (urgent) {
       // A beacon's return value confirms queueing, not receipt. Keep IDs for deduplicated retry.
       try {
-        if (beacon('/api/events', new Blob([JSON.stringify({ consent: 'granted', events: queue.slice(-20) })], { type: 'application/json' }))) {
+        if (beacon('/api/events', new Blob([JSON.stringify(payload(queue.slice(-20)))], { type: 'application/json' }))) {
           status = 'beacon_queued';
           return;
         }
@@ -40,7 +47,7 @@ export function localProvider({ fetcher = (...args) => fetch(...args), beacon = 
       try {
         const response = await fetcher('/api/events', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ consent: 'granted', events: batch }),
+          body: JSON.stringify(payload(batch)),
           keepalive: true, signal: controller.signal,
         });
         if (!response.ok) throw new Error('Collector unavailable');
@@ -68,9 +75,18 @@ export function localProvider({ fetcher = (...args) => fetch(...args), beacon = 
       active = true;
       status = 'ready';
       try {
-        const saved = JSON.parse(storage?.getItem(QUEUE_KEY) || '[]');
-        if (Array.isArray(saved)) queue = saved.slice(-500);
+        storage?.removeItem(LEGACY_QUEUE_KEY);
+        const consent = JSON.parse(consentStorage?.getItem(CONSENT_KEY) || 'null');
+        consentAt = consent?.state === 'granted' && Number.isFinite(consent.at) ? consent.at : undefined;
+        consentGrantId = UUID_PATTERN.test(consent?.grantId) ? consent.grantId : undefined;
+        metaConsent = metaEnabled === true && consentAt !== undefined && consentGrantId !== undefined && consent.metaConsent === true;
+        const saved = JSON.parse(storage?.getItem(QUEUE_KEY) || 'null');
+        if (consentAt !== undefined && consentGrantId !== undefined && saved?.consentAt === consentAt
+            && saved.consentGrantId === consentGrantId && saved.metaConsent === metaConsent && Array.isArray(saved.events)) {
+          queue = saved.events.slice(-500);
+        }
       } catch {}
+      save();
       later();
       return true;
     },

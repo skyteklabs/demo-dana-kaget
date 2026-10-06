@@ -42,6 +42,10 @@ services:
       GA4_MEASUREMENT_ID: "${GA4_MEASUREMENT_ID:-}"
       GROVS_API_KEY: "${GROVS_API_KEY:-}"
       GROVS_TEST_ENVIRONMENT: "${GROVS_TEST_ENVIRONMENT:-false}"
+      META_PIXEL_ID: "${META_PIXEL_ID:-}"
+      META_ACCESS_TOKEN: "${META_ACCESS_TOKEN:-}"
+      META_API_VERSION: "${META_API_VERSION:-v26.0}"
+      META_TEST_EVENT_CODE: "${META_TEST_EVENT_CODE:-}"
       ANALYTICS_DEBUG: "false"
     volumes:
       - analytics-data:/app/data

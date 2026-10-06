@@ -10,6 +10,14 @@ QR encoding runs locally from a pinned, bundled encoder. No QR service receives 
 
 The shared link can be copied or forwarded after reveal. The app's per-email claim ledger cannot enforce one redemption per DANA account, prevent link sharing, or establish remaining balance/expiry. Those controls belong to DANA. Database backups and the private environment now both contain redeemable URLs. See [VALIDATION.md](VALIDATION.md) for the extension's verification results.
 
+## Meta Conversions API extension
+
+Meta delivery is opt-in and server-only. Pixel ID and access token must both be configured; neither the token nor test event code is returned to browsers. The form exposes only an enabled boolean and requests fresh, versioned permission that explicitly covers Meta ad measurement. A scoped grant ID binds retry queues to the permission that created them, preventing reuse of analytics-only consent and replay after withdrawal/regrant in another tab.
+
+Only consented page views and newly persisted, cookie-bound OTP claims become Meta events. Client success telemetry cannot manufacture claim conversions; recovered claims produce no new conversion. The outbound payload contains a fixed page URL plus IP/user-agent matching metadata, without email/hash, OTP, reward, referrer, query strings or arbitrary properties. Forwarded IPs follow the same trusted-proxy rules as rate limits. No Meta browser SDK is loaded, and no additional CSP origins are allowed.
+
+Requests use a fixed HTTPS Graph endpoint, a server-only Bearer header, redirect refusal, a five-second timeout and a 16 KiB response limit. Delivery has bounded concurrency and deduplication state; diagnostics expose counts only through the existing operator report. There is no persistent Meta queue, metadata journal or server retry. Provider failures cannot break claims; outages/capacity limits can lose events, and deduplication does not survive process restart. Withdrawal cannot recall requests already sent. Details and account verification steps are in [README.md](README.md#meta--facebook-integration).
+
 ## Findings and changes
 
 | Finding | Exposure before this review | Remediation and evidence |
